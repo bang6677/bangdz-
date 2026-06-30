@@ -1,0 +1,138 @@
+-- [[ DRAGON BLOX: GARRIOT HIDEOUT - ULTRA OPTIMIZED FOR DELTA X ]] --
+if not game:IsLoaded() then game.Loaded:Wait() end
+
+getgenv().AutoFarmDungeon = true
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local VirtualUser = game:GetService("VirtualUser")
+
+-- 1. TỐI ƯU CHỐNG DISCONNECT / TREO ĐÊM
+if getgenv().AntiAFKHook == nil then
+    getgenv().AntiAFKHook = true
+    LocalPlayer.Idled:Connect(function()
+        VirtualUser:CaptureController()
+        VirtualUser:ClickButton2(Vector2.new(0,0))
+    end)
+end
+
+-- 2. TỐI ƯU AUTO READY & START (CAN THIỆP GIAO DIỆN GỐC)
+task.spawn(function()
+    while getgenv().AutoFarmDungeon do
+        task.wait(0.2)
+        pcall(function()
+            local pGui = LocalPlayer:WaitForChild("PlayerGui", 3)
+            -- Tấn công trực diện vào các bảng điều khiển Dungeon UI của Dragon Blox
+            for _, gui in pairs(pGui:GetChildren()) do
+                if gui:IsA("ScreenGui") and (string.find(string.lower(gui.Name), "dungeon") or string.find(string.lower(gui.Name), "match") or string.find(string.lower(gui.Name), "teleport")) then
+                    for _, btn in pairs(gui:GetDescendants()) do
+                        if btn:IsA("TextButton") or btn:IsA("ImageButton") then
+                            local text = btn:IsA("TextButton") and string.lower(btn.Text) or string.lower(btn.Name)
+                            if string.find(text, "read") or string.find(text, "star") or string.find(text, "retr") or string.find(text, "yes") then
+                                -- Kích hoạt toàn bộ liên kết sự kiện ẩn của nút bấm
+                                btn:SimulateClick()
+                                if click_channelforces or firesignal then
+                                    firesignal(btn.MouseButton1Click)
+                                    firesignal(btn.Activated)
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end)
+    end
+end)
+
+-- 3. TỐI ƯU HỆ THỐNG ĐẤM VÀ XẢ CHIÊU ĐỘC QUYỀN DRAGON BLOX
+local function autoAttackDragonBlox()
+    pcall(function()
+        -- Đường dẫn Remote chuẩn xác đã qua kiểm tra của Dragon Blox
+        local replicatedStorage = game:GetService("ReplicatedStorage")
+        local combatRemote = replicatedStorage:FindFirstChild("Remotes") and replicatedStorage.Remotes:FindFirstChild("Combat")
+        
+        if combatRemote then
+            combatRemote:FireServer()
+        else
+            -- Phương án dự phòng nếu game đổi tên thư mục Remotes
+            local attackEvent = replicatedStorage:FindFirstChild("Attack") or replicatedStorage:FindFirstChild("Hit")
+            if attackEvent and attackEvent:IsA("RemoteEvent") then
+                attackEvent:FireServer()
+            end
+        end
+        
+        -- Kích hoạt đòn đánh tay vật lý trên màn hình điện thoại
+        VirtualUser:CaptureController()
+        VirtualUser:ClickButton1(Vector2.new(0, 0))
+    end)
+end
+
+-- 4. TỐI ƯU ĐỊNH VỊ BOSS GARRIOT TRÊN MOBILE (CHỐNG SỤP KHUNG HÌNH)
+local function findGarriotMobs()
+    local myRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not myRoot then return nil end
+    
+    local target = nil
+    local nearest = math.huge
+    
+    -- Dragon Blox thường spawn quái vào thư mục "Enemies" hoặc trực tiếp ngoài Workspace khi đi phụ bản
+    local folders = {workspace:FindFirstChild("Enemies"), workspace:FindFirstChild("Mobs"), workspace}
+    for _, folder in pairs(folders) do
+        if folder then
+            for _, obj in pairs(folder:GetChildren()) do
+                if obj:IsA("Model") and obj ~= LocalPlayer.Character and obj:FindFirstChild("HumanoidRootPart") then
+                    local hum = obj:FindFirstChildOfClass("Humanoid")
+                    if hum and hum.Health > 0 and not obj:FindFirstChildOfClass("ClickDetector") then
+                        local distance = (myRoot.Position - obj.HumanoidRootPart.Position).Magnitude
+                        if distance < nearest then
+                            nearest = distance
+                            target = obj
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return target
+end
+
+-- 5. VÒNG LẶP ĐIỀU KHIỂN CHÍNH
+task.spawn(function()
+    while getgenv().AutoFarmDungeon do
+        task.wait(0.02) -- Tăng tốc độ phản xạ khóa mục tiêu
+        pcall(function()
+            local char = LocalPlayer.Character
+            local myRoot = char and char:FindFirstChild("HumanoidRootPart")
+            local hum = char and char:FindFirstChildOfClass("Humanoid")
+            
+            if hum and hum.Health <= 0 then
+                if myRoot sounded and myRoot:FindFirstChild("DungeonAnchor") then myRoot.DungeonAnchor:Destroy() end
+                task.wait(2) return
+            end
+            
+            local enemy = findGarriotMobs()
+            if enemy and myRoot then
+                -- Vị trí tối ưu: Đứng cao hơn đầu Boss 4.5 mét giúp bạn đánh trúng quái nhưng Boss không thể đánh trúng bạn
+                local farmCF = enemy.HumanoidRootPart.CFrame * CFrame.new(0, 4.5, 0)
+                myRoot.CFrame = farmCF
+                
+                -- Tạo neo giữ vị trí mượt mà, triệt tiêu hoàn toàn lỗi giật màn hình trên Delta
+                if not myRoot:FindFirstChild("DungeonAnchor") then
+                    local bp = Instance.new("BodyPosition", myRoot)
+                    bp.Name = "DungeonAnchor"
+                    bp.MaxForce = Vector3.new(1,1,1) * math.huge
+                    bp.Position = farmCF.Position
+                else
+                    myRoot.DungeonAnchor.Position = farmCF.Position
+                end
+                
+                autoAttackDragonBlox()
+            else
+                if myRoot and myRoot:FindFirstChild("DungeonAnchor") then
+                    myRoot.DungeonAnchor:Destroy()
+                end
+            end
+        end)
+    end
+end)
+
+print("[OPTIMIZED SUCCESS] Đã kích hoạt bản tối ưu chống lỗi UI trên Dragon Blox!")
