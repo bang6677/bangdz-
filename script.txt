@@ -1,0 +1,43 @@
+getgenv().AutoFarm = true
+local P = game:GetService("Players").LocalPlayer
+local VU = game:GetService("VirtualUser")
+P.Idled:Connect(function() VU:CaptureController() VU:ClickButton2(Vector2.new(0,0)) end)
+task.spawn(function()
+    while getgenv().AutoFarm do task.wait(0.3)
+        pcall(function()
+            for _, v in pairs(P.PlayerGui:GetDescendants()) do
+                if v:IsA("TextButton") or v:IsA("ImageButton") then
+                    local t = string.lower(v:IsA("TextButton") and v.Text or v.Name)
+                    if string.find(t,"read") or string.find(t,"star") or string.find(t,"retr") then
+                        v:SimulateClick()
+                        firesignal(v.MouseButton1Click)
+                    end
+                end
+            end
+        end)
+    end
+end)
+task.spawn(function()
+    while getgenv().AutoFarm do task.wait(0.05)
+        pcall(function()
+            local myRoot = P.Character.HumanoidRootPart
+            local enemy = nil local dist = math.huge
+            for _, x in pairs(workspace:GetDescendants()) do
+                if x:IsA("Model") and x ~= P.Character and x:FindFirstChild("HumanoidRootPart") and x:FindFirstChildOfClass("Humanoid") and x:FindFirstChildOfClass("Humanoid").Health > 0 and not x:FindFirstChildOfClass("ClickDetector") then
+                    local d = (myRoot.Position - x.HumanoidRootPart.Position).Magnitude
+                    if d < dist then dist = d enemy = x end
+                end
+            end
+            if enemy then
+                local cf = enemy.HumanoidRootPart.CFrame * CFrame.new(0, 5, 0)
+                myRoot.CFrame = cf
+                if not myRoot:FindFirstChild("P1") then
+                    local bp = Instance.new("BodyPosition", myRoot) bp.Name = "P1" bp.MaxForce = Vector3.new(1,1,1)*math.huge bp.Position = cf.Position
+                else myRoot.P1.Position = cf.Position end
+                local rem = game:GetService("ReplicatedStorage"):FindFirstChild("Remotes")
+                if rem and rem:FindFirstChild("Combat") then rem.Combat:FireServer() end
+                VU:CaptureController() VU:ClickButton1(Vector2.new(0,0))
+            else if myRoot:FindFirstChild("P1") then myRoot.P1:Destroy() end end
+        end)
+    end
+end)
