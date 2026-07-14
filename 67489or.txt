@@ -1,0 +1,166 @@
+--[[
+    DRAGON SOUL VIP MENU HUB (OCEAN BLUE + FLOATING BUTTON)
+    Giao diện màu xanh Neon, tích hợp Auto Farm, Auto Stats và Nút tròn Ẩn/Hiện VIP
+--]]
+
+-- Tải thư viện Giao diện UI Kavo
+local Library = loadstring(game:HttpGet("https://githubusercontent.com"))()
+local Window = Library.CreateLib("🐉 DRAGON SOUL VIP HUB", "Ocean")
+
+-- Biến cấu hình trạng thái
+_G.AutoFarm = false
+_G.AntiAFK = true
+_G.TeleDistance = 5
+
+-- Biến cấu hình Auto Stats
+_G.AutoStats = false
+_G.SelectedStat = "Melee"
+
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local RunService = game:GetService("RunService")
+
+-- Chống AFK rời phòng tự động
+if _G.AntiAFK then
+    pcall(function()
+        LocalPlayer.Idled:Connect(function()
+            game:GetService("VirtualUser"):Button2Down(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
+            task.wait(1)
+            game:GetService("VirtualUser"):Button2Up(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
+        end)
+    end)
+end
+
+-- Đi xuyên tường (Noclip)
+RunService.Stepped:Connect(function()
+    if _G.AutoFarm and LocalPlayer.Character then
+        for _, part in pairs(LocalPlayer.Character:GetChildren()) do
+            if part:IsA("BasePart") then
+                part.CanCollide = false
+            end
+        end
+    end
+end)
+
+-- Hàm quét tìm quái vật gần nhất
+local function getClosestMonster()
+    local target = nil
+    local shortestDistance = math.huge
+    for _, obj in pairs(workspace:GetDescendants()) do
+        if obj:IsA("Model") and obj:FindFirstChild("Humanoid") and obj:FindFirstChild("HumanoidRootPart") then
+            if obj.Name ~= LocalPlayer.Name and not Players:GetPlayerFromCharacter(obj) and obj.Humanoid.Health > 0 then
+                local distance = (LocalPlayer.Character.HumanoidRootPart.Position - obj.HumanoidRootPart.Position).Magnitude
+                if distance < shortestDistance then
+                    shortestDistance = distance
+                    target = obj
+                end
+            end
+        end
+    end
+    return target
+end
+
+-- Vòng lặp Auto Farm chính
+task.spawn(function()
+    while true do
+        task.wait(0.2)
+        if _G.AutoFarm then
+            pcall(function()
+                local monster = getClosestMonster()
+                if monster then
+                    while _G.AutoFarm and monster.Humanoid.Health > 0 and monster:FindFirstChild("HumanoidRootPart") do
+                        task.wait()
+                        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                            LocalPlayer.Character.HumanoidRootPart.CFrame = monster.HumanoidRootPart.CFrame * CFrame.new(0, _G.TeleDistance, 0)
+                            game:GetService("VirtualUser"):CaptureController()
+                            game:GetService("VirtualUser"):Button1Down(Vector2.new(0, 0))
+                        end
+                    end
+                end
+            end)
+        end
+    end
+end)
+
+-- Vòng lặp Auto Stats
+task.spawn(function()
+    while true do
+        task.wait(1)
+        if _G.AutoStats then
+            pcall(function()
+                game:GetService("ReplicatedStorage").Remotes.UpgradeStat:FireServer(_G.SelectedStat, 1)
+            end)
+        end
+    end
+end)
+
+-- ==================== TẠO NÚT TRÒN ẨN/HIỆN (FLOATING BUTTON) ====================
+local ScreenGui = Instance.new("ScreenGui")
+local ToggleButton = Instance.new("TextButton")
+local UICorner = Instance.new("UICorner")
+
+-- Đặt tên và vị trí cho tầng hiển thị
+ScreenGui.Name = "VIPToggleGui"
+ScreenGui.Parent = game:GetService("CoreGui") or LocalPlayer:WaitForChild("PlayerGui")
+
+-- Cấu hình nút tròn màu xanh neon
+ToggleButton.Name = "ToggleButton"
+ToggleButton.Parent = ScreenGui
+ToggleButton.BackgroundColor3 = Color3.fromRGB(0, 180, 216) -- Màu xanh ngọc biển
+ToggleButton.Position = UDim2.new(0.1, 0, 0.15, 0) -- Vị trí góc trên bên trái màn hình
+ToggleButton.Size = UDim2.new(0, 50, 0, 50) -- Kích thước nút tròn 50x50
+ToggleButton.Font = Enum.Font.SourceSansBold
+ToggleButton.Text = "DS" -- Chữ viết tắt của Dragon Soul
+ToggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+ToggleButton.TextSize = 20.000
+ToggleButton.Active = true
+ToggleButton.Draggable = true -- Bạn có thể dùng ngón tay kéo nút này đi bất kỳ đâu trên màn hình
+
+-- Bo tròn nút thành hình tròn tuyệt đối
+UICorner.CornerRadius = UDim.new(0, 25)
+UICorner.Parent = ToggleButton
+
+-- Chức năng bật/tắt Menu khi bấm vào nút tròn
+ToggleButton.MouseButton1Click:Connect(function()
+    Library:ToggleUI()
+end)
+
+-- ==================== CẤU HÌNH GIAO DIỆN MENU VIP ====================
+
+-- TAB 1: TỰ ĐỘNG CÀY CẤP (MAIN FARM)
+local Tab1 = Window:NewTab("Main Farm")
+local Section1 = Tab1:NewSection("Tự Động Cày Cấp")
+
+Section1:NewToggle("Bật Auto Farm Quái", "Tự động bay tới quái và đánh liên tục", function(state)
+    _G.AutoFarm = state
+end)
+
+Section1:NewSlider("Khoảng Cách Né Đòn", "Chỉnh độ cao đứng trên đầu quái vật", 10, 3, function(v)
+    _G.TeleDistance = v
+end)
+
+-- TAB 2: TỰ ĐỘNG CỘNG ĐIỂM (AUTO STATS)
+local Tab2 = Window:NewTab("Auto Stats")
+local Section2 = Tab2:NewSection("Nâng Chỉ Số Sức Mạnh")
+
+Section2:NewDropdown("Chọn Chỉ Số Cần Nâng", "Chọn loại sức mạnh bạn muốn tăng điểm", {"Melee", "Ki", "Defense", "Max_Ki"}, function(currentOption)
+    _G.SelectedStat = currentOption
+end)
+
+Section2:NewToggle("Bật Auto Nâng Điểm", "Tự động cộng vào chỉ số đã chọn khi có điểm dư", function(state)
+    _G.AutoStats = state
+end)
+
+-- TAB 3: TIỆN ÍCH HỆ THỐNG
+local Tab3 = Window:NewTab("Hệ Thống")
+local Section3 = Tab3:NewSection("Tối Ưu Mobile")
+
+Section3:NewButton("Giảm Lag (Xóa Hiệu Ứng)", "Xóa bớt map thừa để máy mát hơn", function()
+    pcall(function()
+        for _, v in pairs(workspace:GetDescendants()) do
+            if v:IsA("ParticleEmitter") or v:IsA("Trail") or v:IsA("Smoke") then
+                v:Destroy()
+            end
+        end
+    end)
+end)
